@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+
+<launch>
+
+<param name="Rb" type="double" value="3.5"/>
+<param name="d" type="double" value="10.0"/>
+<param name="c" type="double" value="36.0"/>
+<param name="ref_vel" type="double" value="1.0"/>
+
+<!--Run the stage simulator-->
+<node pkg = "stage_ros" name = "stageros" type = "stageros" output = "screen" args="-d $(find dubins_seg)/worlds/map_2-2-1.world" respawn="true">
+</node>
+
+<group ns = "robot_0">
+    <node pkg = "dubins_seg" name = "controller" type = "robot_control.py" args="0 0 20.000 0.000 0.000 90.000" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_1">
+    <node pkg = "dubins_seg" name = "controller_1" type = "robot_control.py" args="1 0 28.284 28.284 0.000 135.000" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_2">
+    <node pkg = "dubins_seg" name = "controller_2" type = "robot_control.py" args="2 1 -30.000 0.000 0.000 90.000" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_3">
+    <node pkg = "dubins_seg" name = "controller_3" type = "robot_control.py" args="3 1 1.000 10.000 0.000 0.000" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_4">
+    <node pkg = "dubins_seg" name = "controller_4" type = "robot_control.py" args="4 2 10.000 0.071 0.000 -90.000" output="screen" respawn="true">
+    </node>
+</group>
+
+
+<!-- Communication manager args="N_robots"-->
+<node pkg = "dubins_seg" name = "communication" type = "communication_manager.py" args="0 0 1 1 2" output="screen" respawn="true">
+</node>
+
+</launch>

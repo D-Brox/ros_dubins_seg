@@ -1,0 +1,12 @@
+int64[] curve_index
+int64[] group
+int64[] time_curve
+int64[] time
+int64[] pose2D_x
+int64[] pose2D_y
+int64[] pose2D_theta
+int64[] mov_will
+int64[] number
+---
+int64 to
+int64 from
