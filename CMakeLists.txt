@@ -61,8 +61,6 @@ add_service_files(
   FILES
   send_memory.srv
   receive_memory.srv
-  send_theta_incircle.srv
-  receive_theta_incircle.srv
 )
 
 ## Generate actions in the 'action' folder
