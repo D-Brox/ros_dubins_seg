@@ -21,7 +21,7 @@
 </group>
 
 <!-- Communication manager args="N_robots"-->
-<!-- <node pkg = "dubins_seg" name = "communication" type = "ros_comm_node.py" args="0 0 1 1 2" output="screen" respawn="true">
-</node> -->
+<node pkg = "dubins_seg" name = "communication" type = "ros_comm_node.py" args="0 0" output="screen" respawn="true">
+</node>
 
 </launch>

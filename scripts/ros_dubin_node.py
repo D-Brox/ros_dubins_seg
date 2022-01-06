@@ -11,6 +11,7 @@ from rosgraph_msgs.msg import Clock
 from tf.transformations import euler_from_quaternion
 # from visualization_msgs.msg import Marker, MarkerArray
 
+from dubins_seg.srv import *
 from pydubinsseg.segregationcontrol import SegregationControl
 from pydubinsseg import state
 
@@ -108,7 +109,7 @@ class ControlNode():
                 'will': req.mov_will[index]
             }
             j_memory_data_list.append(item)
-        self.__segregation.recieve_memory(j_memory_data)
+        self.__segregation.recieve_memory(j_memory_data_list)
         return receive_memoryResponse(0,0)  
 
     def callback_pose(self, data):
