@@ -11,8 +11,8 @@ from sensor_msgs.msg import LaserScan
 from tf.transformations import euler_from_quaternion
 from visualization_msgs.msg import Marker, MarkerArray
 
-from dubinssegregation.segregationcontrol import SegregationControl
-from dubinssegregation import state
+from pydubinsseg.segregationcontrol import SegregationControl
+from pydubinsseg import state
 
 
 class ControlNode():
