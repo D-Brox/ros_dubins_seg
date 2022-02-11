@@ -43,10 +43,8 @@ class ControlNode():
         time.sleep(0.5)
         while not rospy.is_shutdown():
             self.__segregation.set_params(self.load_sim_param())
-            # Broadcast hi
             self.__segregation.update_memory_about_itself()
             if self.__segregation.get_state() == state['in circle']:
-                # self.__segregation.recieve_j_memory(other_memory)
                 self.__segregation.calculate_lap()
                 self.__segregation.calculate_wills()
                 # self.__segregation.prevent_collision()
