@@ -82,7 +82,7 @@ window
 floorplan
 ( 
   name "my_map"
-  bitmap "map_1.png"
+  bitmap "map.png"
   size [600.000 600.000 10.000]
   pose [ 0.000 0.000 0.000 0.000 ] #[x y ? theta]
 )

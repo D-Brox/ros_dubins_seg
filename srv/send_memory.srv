@@ -3,10 +3,11 @@ int64 from
 ---
 int64[] curve_index
 int64[] group
-int64[] time_curve
-int64[] time
-int64[] pose2D_x
-int64[] pose2D_y
-int64[] pose2D_theta
+float64[] time_curve
+float64[] time
+float64[] pose2D_x
+float64[] pose2D_y
+float64[] pose2D_theta
 int64[] mov_will
 int64[] number
+bool[] state
