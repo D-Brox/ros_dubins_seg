@@ -6,6 +6,7 @@ import time
 import rospy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Empty
 from rosgraph_msgs.msg import Clock
 # from sensor_msgs.msg import LaserScan
 from tf.transformations import euler_from_quaternion
@@ -22,7 +23,8 @@ class ControlNode():
         self.__robot_number = robot_number
         self.__robot_group = robot_group
         self.__freq = float(freq)
-        self.__segregation = SegregationControl(self.__robot_number, self.__robot_group, state['in circle'], self.load_sim_param())
+        self.load_sim_param()
+        self.__segregation = SegregationControl(self.__robot_number, self.__robot_group, state['in circle'], self.__params)
         # Init node
         rospy.init_node(f"controller_{self.__robot_number}")
         # Topics
@@ -35,34 +37,49 @@ class ControlNode():
         send_memory_obj = rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory)
         receive_memory_obj = rospy.Service(f"receive_mem_{self.__robot_number}", receive_memory, self.receive_memory)
         # Pub blank data to start
+        self.__start = False
         self.pub_vel(0,0)
 
     def main_loop(self):
-        time.sleep(0.5)
         self.__segregation.calculate_initial_conditions()
-        time.sleep(0.5)
-        self.__segregation.set_params(self.load_sim_param())
+        self.__segregation.set_params(self.__params)
+        self.__segregation.update_memory_about_itself()
+
+        start_srv = rospy.ServiceProxy("/start",start)
+        while not self.__start:
+            try:
+                self.__start = start_srv()
+            except:
+                pass
+            self.__rate.sleep()
+
         while not rospy.is_shutdown():
             self.__segregation.update_memory_about_itself()
             # A1: l6-l24
             if self.__segregation.get_state() == state['in circle']:
                 self.__segregation.calculate_lap() # l7-l8
-                self.__segregation.calculate_wills() # l9-l22 and A2 at the end
+                inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
+                self.__rate.sleep()
+                if inward or outward:
+                    self.__segregation.prevent_collision(inward,outward)
             # A1: l25-l
             elif self.__segregation.get_state() == state['transition']:
                 self.__segregation.check_arrival()
+                self.__rate.sleep()
+
             [v,w] = self.__segregation.calculate_input_signals()
             self.pub_vel(v,w) # Action
+            self.__rate.sleep()
 
     def load_sim_param(self):
         # Load simulation parameters
-        params = {
+        self.__params = {
             'Rb': float(rospy.get_param('/Rb')),
             'd': float(rospy.get_param('/d')),
             'c': float(rospy.get_param('/c')),
-            'ref_vel': float(rospy.get_param('/ref_vel'))
+            'ref_vel': float(rospy.get_param('/ref_vel')),
+            'n_robots': int(rospy.get_param('/n_robots'))
         }
-        return params
 
     def pub_vel(self,v,w):
         vel = Twist()
@@ -101,7 +118,7 @@ class ControlNode():
         for index in range(n_items):
             item = {
                 'group': req.group[index],
-                'number': req.curve_index[index],
+                'number': req.number[index],
                 'curve_index': req.curve_index[index],
                 'time_curve': req.time_curve[index],
                 'time': req.time[index],
@@ -140,6 +157,7 @@ class ControlNode():
 
 if __name__ == '__main__':
     try:
+        time.sleep(5)
         robot_number = int(sys.argv[1]); robot_group  = int(sys.argv[2]); x_initial = float(sys.argv[3]); y_initial = float(sys.argv[4])
         control_node = ControlNode(robot_number, robot_group)
         control_node.main_loop()

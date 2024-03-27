@@ -6,10 +6,10 @@ define block model
 
 define topurg ranger
 (
-	sensor( 			
-    range [ 0.0  36.0 ]
+	sensor(
+    range [ 4.0  36.0 ]
     fov 360
-   samples 36
+   samples 360
   )
 
   # generic model properties
@@ -48,20 +48,20 @@ define floorplan model
 )
 
 # set the resolution of the underlying raytrace model in meters
-resolution 0.20
+resolution 0.10
 
-interval_sim 10  # simulation timestep in milliseconds
+interval_sim 50  # simulation timestep in milliseconds
 
 
 window
-( 
-  size [ 1000 1000 ] 
+(
+  size [ 1000 1000 ]
 
   rotate [ 0.000 0.000 ]
   scale 5.000
 
   # GUI options
-  show_data 1
+  show_data 0
   show_blocks 1
   show_flags 1
   show_clock 1
@@ -80,9 +80,9 @@ window
 
 # load an environment bitmap
 floorplan
-( 
+(
   name "my_map"
-  bitmap "map_1.png"
+  bitmap "map.png"
   size [600.000 600.000 10.000]
   pose [ 0.000 0.000 0.000 0.000 ] #[x y ? theta]
 )

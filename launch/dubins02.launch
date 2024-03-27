@@ -2,10 +2,11 @@
 
 <launch>
 
-<param name="Rb" type="double" value="3.5"/>
+<param name="Rb" type="double" value="2.5"/>
 <param name="d" type="double" value="10.0"/>
 <param name="c" type="double" value="36.0"/>
 <param name="ref_vel" type="double" value="1.0"/>
+<param name="n_robots" type="int" value="2"/>
 
 <!--Run the stage simulator-->
 <node pkg = "stage_ros" name = "stageros" type = "stageros" output = "screen" args="-d $(find dubins_seg)/worlds/map_2_dubins.world" respawn="true">
