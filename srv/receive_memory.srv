@@ -1,4 +1,4 @@
-int64[] curve_index
+int64[] curve
 int64[] group
 float64[] time_curve
 float64[] time

@@ -89,7 +89,7 @@ class ControlNode():
         self.__rate.sleep()
 
     def send_memory(self,req):
-        curve_index_list = []
+        curve_list = []
         group_list = []
         time_curve_list = []
         time_list = []
@@ -100,7 +100,7 @@ class ControlNode():
         number_list = []
         state_list = []
         for item in self.__segregation.send_memory():
-            curve_index_list.append( int(item["curve_index"]) )
+            curve_list.append( int(item["curve"]) )
             group_list.append( int(item["group"]) )
             time_curve_list.append( item["time_curve"] )
             time_list.append( item["time"] )
@@ -110,16 +110,16 @@ class ControlNode():
             will_list.append( int(item["will"]) )
             number_list.append( int(item["number"]) )
             state_list.append( int(item["state"]) )
-        return send_memoryResponse(curve_index_list, group_list, time_curve_list, time_list, pose2D_x_list, pose2D_y_list, pose2D_theta_list, will_list, number_list,state_list)
+        return send_memoryResponse(curve_list, group_list, time_curve_list, time_list, pose2D_x_list, pose2D_y_list, pose2D_theta_list, will_list, number_list,state_list)
 
     def receive_memory(self,req):
         j_memory_data_list = []
-        n_items = len(req.curve_index)
+        n_items = len(req.curve)
         for index in range(n_items):
             item = {
                 "group": req.group[index],
                 "number": req.number[index],
-                "curve_index": req.curve_index[index],
+                "curve": req.curve[index],
                 "time_curve": req.time_curve[index],
                 "time": req.time[index],
                 "pose2D": [req.pose2D_x[index], req.pose2D_y[index], req.pose2D_theta[index]],
@@ -128,7 +128,7 @@ class ControlNode():
             }
             j_memory_data_list.append(item)
         self.__segregation.recieve_memory(j_memory_data_list)
-        return receive_memoryResponse(0,0)  
+        return receive_memoryResponse(0,0)
 
     def callback_pose(self, data):
         x = data.pose.pose.position.x
@@ -163,4 +163,3 @@ if __name__ == "__main__":
         control_node.main_loop()
     except rospy.ROSInterruptException:
         pass
-    

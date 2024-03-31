@@ -45,8 +45,8 @@ class CommNode():
                     receive_memory_j = rospy.ServiceProxy(f"/robot_{j}/receive_mem_{j}", receive_memory)
                     memory_i = send_memory_i(i,j)
                     memory_j = send_memory_j(j,i)
-                    receive_memory_i(memory_j.curve_index, memory_j.group, memory_j.time_curve, memory_j.time, memory_j.pose2D_x, memory_j.pose2D_y, memory_j.pose2D_theta, memory_j.mov_will, memory_j.number,memory_j.state)
-                    receive_memory_j(memory_i.curve_index, memory_i.group, memory_i.time_curve, memory_i.time, memory_i.pose2D_x, memory_i.pose2D_y, memory_i.pose2D_theta, memory_i.mov_will, memory_i.number,memory_i.state)
+                    receive_memory_i(memory_j.curve, memory_j.group, memory_j.time_curve, memory_j.time, memory_j.pose2D_x, memory_j.pose2D_y, memory_j.pose2D_theta, memory_j.mov_will, memory_j.number,memory_j.state)
+                    receive_memory_j(memory_i.curve, memory_i.group, memory_i.time_curve, memory_i.time, memory_i.pose2D_x, memory_i.pose2D_y, memory_i.pose2D_theta, memory_i.mov_will, memory_i.number,memory_i.state)
                 except:
                     pass
 
