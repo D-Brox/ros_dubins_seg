@@ -139,21 +139,8 @@ class ControlNode():
         pose2D = [x,y,theta]
         self.__segregation.set_pose2D(pose2D)
 
-    # def callback_scan(self,data):
-    #     angle_min = data.angle_min
-    #     angle_max = data.angle_max
-    #     angle_increment = data.angle_increment
-    #     angle = [angle_min, angle_max, angle_increment]
-    #     range_min = data.range_min
-    #     range_max = data.range_max
-    #     ranges = [range_min, range_max]
-    #     range_sensor = RangeSensor(angle=angle, ranges=ranges)
-    #     range_sensor.update_ranges(data.ranges, data.intensities)
-    #     self.dubin.update_measurement(range_sensor)
-
     def callback_time(self, data):
         self.__segregation.set_time(float(data.clock.secs) + float(data.clock.nsecs)/1e9)
-
 
 if __name__ == "__main__":
     try:
