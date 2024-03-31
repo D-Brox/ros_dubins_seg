@@ -19,10 +19,10 @@ class CommNode():
         self.__x = [0]*self.__n_robots
         self.__y = [0]*self.__n_robots
         self.__theta = [0]*self.__n_robots
-        self.__params = self.load_sim_param()      
+        self.__params = self.load_sim_param()
         self.__start = [False for _ in range(self.__n_robots)]
         # Init node
-        rospy.init_node('communication')
+        rospy.init_node("communication")
         # Topics
         for robot_number in range(self.__n_robots):
             rospy.Subscriber(f"robot_{robot_number}/base_pose_ground_truth", Odometry, self.callback_pose, (robot_number))
@@ -37,7 +37,7 @@ class CommNode():
 
     def send_and_receive(self):
         for i,j in combinations(range(self.__n_robots),2):
-            if (self.__x[i] - self.__x[j])**2 + (self.__y[i] - self.__y[j])**2 < self.__params['c']**2:
+            if (self.__x[i] - self.__x[j])**2 + (self.__y[i] - self.__y[j])**2 < self.__params["c"]**2:
                 try:
                     send_memory_i = rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory)
                     send_memory_j = rospy.ServiceProxy(f"/robot_{j}/send_mem_{j}",send_memory)
@@ -53,10 +53,10 @@ class CommNode():
     def load_sim_param(self):
         # Load simulation parameters
         params = {
-            'Rb': float(rospy.get_param('/Rb')),
-            'd': float(rospy.get_param('/d')),
-            'c': float(rospy.get_param('/c')),
-            'ref_vel': float(rospy.get_param('/ref_vel'))
+            "Rb": float(rospy.get_param("/Rb")),
+            "d": float(rospy.get_param("/d")),
+            "c": float(rospy.get_param("/c")),
+            "ref_vel": float(rospy.get_param("/ref_vel"))
         }
         return params
 
@@ -72,7 +72,7 @@ class CommNode():
         self.__theta[robot_number] = euler[2]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         time.sleep(5)
 

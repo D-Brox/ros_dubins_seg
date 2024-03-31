@@ -24,14 +24,14 @@ class ControlNode():
         self.__robot_group = robot_group
         self.__freq = float(freq)
         self.load_sim_param()
-        self.__segregation = SegregationControl(self.__robot_number, self.__robot_group, state['in circle'], self.__params)
+        self.__segregation = SegregationControl(self.__robot_number, self.__robot_group, state["in circle"], self.__params)
         # Init node
         rospy.init_node(f"controller_{self.__robot_number}")
         # Topics
         self.__publisher = rospy.Publisher(f"/robot_{self.__robot_number}/cmd_vel", Twist, queue_size=10)
         rospy.Subscriber(f"/robot_{self.__robot_number}/base_pose_ground_truth", Odometry, self.callback_pose)
         # rospy.Subscriber(f"/robot_{self.__robot_number}/base_scan", LaserScan, self.callback_scan)
-        rospy.Subscriber('/clock', Clock, self.callback_time)
+        rospy.Subscriber("/clock", Clock, self.callback_time)
         self.__rate = rospy.Rate(self.__freq)
         # # Services
         send_memory_obj = rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory)
@@ -56,14 +56,14 @@ class ControlNode():
         while not rospy.is_shutdown():
             self.__segregation.update_memory_about_itself()
             # A1: l6-l24
-            if self.__segregation.get_state() == state['in circle']:
+            if self.__segregation.get_state() == state["in circle"]:
                 self.__segregation.calculate_lap() # l7-l8
                 inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
                 self.__rate.sleep()
                 if inward or outward:
                     self.__segregation.prevent_collision(inward,outward)
             # A1: l25-l
-            elif self.__segregation.get_state() == state['transition']:
+            elif self.__segregation.get_state() == state["transition"]:
                 self.__segregation.check_arrival()
                 self.__rate.sleep()
 
@@ -74,11 +74,11 @@ class ControlNode():
     def load_sim_param(self):
         # Load simulation parameters
         self.__params = {
-            'Rb': float(rospy.get_param('/Rb')),
-            'd': float(rospy.get_param('/d')),
-            'c': float(rospy.get_param('/c')),
-            'ref_vel': float(rospy.get_param('/ref_vel')),
-            'n_robots': int(rospy.get_param('/n_robots'))
+            "Rb": float(rospy.get_param("/Rb")),
+            "d": float(rospy.get_param("/d")),
+            "c": float(rospy.get_param("/c")),
+            "ref_vel": float(rospy.get_param("/ref_vel")),
+            "n_robots": int(rospy.get_param("/n_robots"))
         }
 
     def pub_vel(self,v,w):
@@ -100,16 +100,16 @@ class ControlNode():
         number_list = []
         state_list = []
         for item in self.__segregation.send_memory():
-            curve_index_list.append( int(item['curve_index']) )
-            group_list.append( int(item['group']) )
-            time_curve_list.append( item['time_curve'] )
-            time_list.append( item['time'] )
-            pose2D_x_list.append( item['pose2D'][0] )
-            pose2D_y_list.append( item['pose2D'][1] )
-            pose2D_theta_list.append( item['pose2D'][2] )
-            will_list.append( int(item['will']) )
-            number_list.append( int(item['number']) )
-            state_list.append( int(item['state']) )
+            curve_index_list.append( int(item["curve_index"]) )
+            group_list.append( int(item["group"]) )
+            time_curve_list.append( item["time_curve"] )
+            time_list.append( item["time"] )
+            pose2D_x_list.append( item["pose2D"][0] )
+            pose2D_y_list.append( item["pose2D"][1] )
+            pose2D_theta_list.append( item["pose2D"][2] )
+            will_list.append( int(item["will"]) )
+            number_list.append( int(item["number"]) )
+            state_list.append( int(item["state"]) )
         return send_memoryResponse(curve_index_list, group_list, time_curve_list, time_list, pose2D_x_list, pose2D_y_list, pose2D_theta_list, will_list, number_list,state_list)
 
     def receive_memory(self,req):
@@ -117,14 +117,14 @@ class ControlNode():
         n_items = len(req.curve_index)
         for index in range(n_items):
             item = {
-                'group': req.group[index],
-                'number': req.number[index],
-                'curve_index': req.curve_index[index],
-                'time_curve': req.time_curve[index],
-                'time': req.time[index],
-                'pose2D': [req.pose2D_x[index], req.pose2D_y[index], req.pose2D_theta[index]],
-                'will': req.mov_will[index],
-                'state': req.state[index],
+                "group": req.group[index],
+                "number": req.number[index],
+                "curve_index": req.curve_index[index],
+                "time_curve": req.time_curve[index],
+                "time": req.time[index],
+                "pose2D": [req.pose2D_x[index], req.pose2D_y[index], req.pose2D_theta[index]],
+                "will": req.mov_will[index],
+                "state": req.state[index],
             }
             j_memory_data_list.append(item)
         self.__segregation.recieve_memory(j_memory_data_list)
@@ -155,7 +155,7 @@ class ControlNode():
         self.__segregation.set_time(float(data.clock.secs) + float(data.clock.nsecs)/1e9)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         time.sleep(5)
         robot_number = int(sys.argv[1]); robot_group  = int(sys.argv[2]); x_initial = float(sys.argv[3]); y_initial = float(sys.argv[4])
