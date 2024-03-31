@@ -61,6 +61,7 @@ class ControlNode():
                 inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
                 self.__rate.sleep()
                 if inward or outward:
+                    self.__rate.sleep()
                     self.__segregation.prevent_collision(inward,outward)
             # A1: l25-l
             elif self.__segregation.get_state() == state["transition"]:
@@ -102,14 +103,14 @@ class ControlNode():
         for item in self.__segregation.send_memory():
             curve_list.append( int(item["curve"]) )
             group_list.append( int(item["group"]) )
-            time_curve_list.append( item["time_curve"] )
-            time_list.append( item["time"] )
-            pose2D_x_list.append( item["pose2D"][0] )
-            pose2D_y_list.append( item["pose2D"][1] )
+            time_curve_list.append( int(item["time_curve"]) )
+            time_list.append( float(item["time"]) )
+            pose2D_x_list.append( float(item["pose2D"][0]) )
+            pose2D_y_list.append( float(item["pose2D"][1]) )
             pose2D_theta_list.append( item["pose2D"][2] )
             will_list.append( int(item["will"]) )
             number_list.append( int(item["number"]) )
-            state_list.append( int(item["state"]) )
+            state_list.append( bool(item["state"]) )
         return send_memoryResponse(curve_list, group_list, time_curve_list, time_list, pose2D_x_list, pose2D_y_list, pose2D_theta_list, will_list, number_list,state_list)
 
     def receive_memory(self,req):
