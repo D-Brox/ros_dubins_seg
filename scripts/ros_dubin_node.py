@@ -45,7 +45,7 @@ class ControlNode():
         self.__segregation.set_params(self.__params)
         self.__segregation.update_memory_about_itself()
 
-        start_srv = rospy.ServiceProxy("/start",start)
+        start_srv = rospy.ServiceProxy("/start",start,persistent=True)
         while not self.__start:
             try:
                 self.__start = start_srv()
@@ -53,7 +53,7 @@ class ControlNode():
                 pass
             self.__rate.sleep()
 
-        update = rospy.ServiceProxy("/update_i",update_i)
+        update = rospy.ServiceProxy("/update_i",update_i,persistent=True)
         while not rospy.is_shutdown():
             self.__segregation.update_memory_about_itself()
             # A1: l6-l24

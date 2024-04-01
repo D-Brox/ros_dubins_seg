@@ -27,10 +27,10 @@ class CommNode():
         # Topics
         for robot_number in range(self.__n_robots):
             rospy.Subscriber(f"robot_{robot_number}/base_pose_ground_truth", Odometry, self.callback_pose, (robot_number))
-        rospy.Service("start",start,lambda _:all(self.__start))
+        rospy.Service("start",start,lambda _:all(self.__start) and all(self.__start))
 
-        self.__send = [rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory) for i in range(self.__n_robots)]
-        self.__receive = [rospy.ServiceProxy(f"/robot_{i}/receive_mem_{i}", receive_memory) for i in range(self.__n_robots)]
+        self.__send = [rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory,persistent=True) for i in range(self.__n_robots)]
+        self.__receive = [rospy.ServiceProxy(f"/robot_{i}/receive_mem_{i}", receive_memory,persistent=True) for i in range(self.__n_robots)]
         rospy.Service("update_i",update_i,self.update_i)
 
         self.__rate = rospy.Rate(self.__freq)
