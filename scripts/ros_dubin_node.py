@@ -34,8 +34,8 @@ class ControlNode():
         rospy.Subscriber("/clock", Clock, self.callback_time)
         self.__rate = rospy.Rate(self.__freq)
         # # Services
-        send_memory_obj = rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory)
-        receive_memory_obj = rospy.Service(f"receive_mem_{self.__robot_number}", receive_memory, self.receive_memory)
+        rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory)
+        rospy.Service(f"receive_mem_{self.__robot_number}", receive_memory, self.receive_memory)
         # Pub blank data to start
         self.__start = False
         self.pub_vel(0,0)
@@ -53,16 +53,17 @@ class ControlNode():
                 pass
             self.__rate.sleep()
 
+        update = rospy.ServiceProxy("/update_i",update_i)
         while not rospy.is_shutdown():
             self.__segregation.update_memory_about_itself()
             # A1: l6-l24
             if self.__segregation.get_state() == state["in circle"]:
+                self.__segregation.set_neighbors(update(self.__robot_number).j_list)
                 self.__segregation.calculate_lap() # l7-l8
                 inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
-                self.__rate.sleep()
                 if inward or outward:
-                    self.__rate.sleep()
                     self.__segregation.prevent_collision(inward,outward)
+                self.__rate.sleep()
             # A1: l25-l
             elif self.__segregation.get_state() == state["transition"]:
                 self.__segregation.check_arrival()

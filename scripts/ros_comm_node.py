@@ -13,12 +13,13 @@ from dubins_seg.srv import *
 
 class CommNode():
 
-    def __init__(self, n_robots, freq=120):
+    def __init__(self, n_robots, freq=1000):
         self.__n_robots = n_robots
         self.__freq = float(freq)
         self.__x = [0]*self.__n_robots
         self.__y = [0]*self.__n_robots
         self.__theta = [0]*self.__n_robots
+        self.__memory = [None]*self.__n_robots
         self.__params = self.load_sim_param()
         self.__start = [False for _ in range(self.__n_robots)]
         # Init node
@@ -26,29 +27,35 @@ class CommNode():
         # Topics
         for robot_number in range(self.__n_robots):
             rospy.Subscriber(f"robot_{robot_number}/base_pose_ground_truth", Odometry, self.callback_pose, (robot_number))
-        self.start = rospy.Service("start",start,lambda _:all(self.__start))
+        rospy.Service("start",start,lambda _:all(self.__start))
+
+        self.__send = [rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory) for i in range(self.__n_robots)]
+        self.__receive = [rospy.ServiceProxy(f"/robot_{i}/receive_mem_{i}", receive_memory) for i in range(self.__n_robots)]
+        rospy.Service("update_i",update_i,self.update_i)
+
         self.__rate = rospy.Rate(self.__freq)
 
     def main_loop(self):
         self.__params = self.load_sim_param()
 
         while not rospy.is_shutdown():
-            self.send_and_receive()
+            self.receive_all()
+            self.__rate.sleep()
 
-    def send_and_receive(self):
-        for i,j in combinations(range(self.__n_robots),2):
+    def receive_all(self):
+        for i in range(self.__n_robots):
+            self.__memory[i] = self.__send[i](i,i)
+
+    def update_i(self,req):
+        i = req.i
+        j_list = []
+        for j in range(self.__n_robots):
             if (self.__x[i] - self.__x[j])**2 + (self.__y[i] - self.__y[j])**2 < self.__params["c"]**2:
-                try:
-                    send_memory_i = rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory)
-                    send_memory_j = rospy.ServiceProxy(f"/robot_{j}/send_mem_{j}",send_memory)
-                    receive_memory_i = rospy.ServiceProxy(f"/robot_{i}/receive_mem_{i}", receive_memory)
-                    receive_memory_j = rospy.ServiceProxy(f"/robot_{j}/receive_mem_{j}", receive_memory)
-                    memory_i = send_memory_i(i,j)
-                    memory_j = send_memory_j(j,i)
-                    receive_memory_i(memory_j.curve, memory_j.group, memory_j.time_curve, memory_j.time, memory_j.pose2D_x, memory_j.pose2D_y, memory_j.pose2D_theta, memory_j.mov_will, memory_j.number,memory_j.state)
-                    receive_memory_j(memory_i.curve, memory_i.group, memory_i.time_curve, memory_i.time, memory_i.pose2D_x, memory_i.pose2D_y, memory_i.pose2D_theta, memory_i.mov_will, memory_i.number,memory_i.state)
-                except:
-                    pass
+                j_list.append(j)
+                if self.__memory[j]:
+                    memory_j = self.__memory[j]
+                    self.__receive[i](memory_j.curve, memory_j.group, memory_j.time_curve, memory_j.time, memory_j.pose2D_x, memory_j.pose2D_y, memory_j.pose2D_theta, memory_j.mov_will, memory_j.number,memory_j.state)
+        return update_iResponse(j_list)
 
     def load_sim_param(self):
         # Load simulation parameters
