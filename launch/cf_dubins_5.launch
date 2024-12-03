@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+
+<launch>
+
+<param name="Rb" type="double" value="0.25"/>
+<param name="d" type="double" value="1.00"/>
+<param name="c" type="double" value="3.60"/>
+<param name="ref_vel" type="double" value="1"/>
+<param name="n_robots" type="int" value="5"/>
+
+<group ns = "robot_0">
+    <node pkg = "dubins_seg" name = "controller_0" type = "ros_dubin_node.py" args="0 0" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_1">
+    <node pkg = "dubins_seg" name = "controller_1" type = "ros_dubin_node.py" args="1 0" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_2">
+    <node pkg = "dubins_seg" name = "controller_2" type = "ros_dubin_node.py" args="2 1" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_3">
+    <node pkg = "dubins_seg" name = "controller_3" type = "ros_dubin_node.py" args="3 1" output="screen" respawn="true">
+    </node>
+</group>
+<group ns = "robot_4">
+    <node pkg = "dubins_seg" name = "controller_4" type = "ros_dubin_node.py" args="4 2" output="screen" respawn="true">
+    </node>
+</group>
+
+
+<!-- Communication manager args="N_robots"-->
+<node pkg = "dubins_seg" name = "communication" type = "ros_comm_node.py" args="0 0 1 1 2" output="screen" respawn="true">
+</node>
+
+</launch>

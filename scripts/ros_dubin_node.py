@@ -19,7 +19,7 @@ from pydubinsseg import state
 
 class ControlNode():
 
-    def __init__(self, robot_number, robot_group, freq=10):
+    def __init__(self, robot_number, robot_group, freq=60):
         self.__robot_number = robot_number
         self.__robot_group = robot_group
         self.__freq = float(freq)
@@ -28,17 +28,16 @@ class ControlNode():
         # Init node
         rospy.init_node(f"controller_{self.__robot_number}")
         # Topics
-        self.__publisher = rospy.Publisher(f"/robot_{self.__robot_number}/cmd_vel", Twist, queue_size=10)
+        self.__publisher = rospy.Publisher(f"/robot_{self.__robot_number}/cmd_vel", Twist, queue_size=10) #TODO: Crazyflie: world vel
         rospy.Subscriber(f"/robot_{self.__robot_number}/base_pose_ground_truth", Odometry, self.callback_pose)
-        # rospy.Subscriber(f"/robot_{self.__robot_number}/base_scan", LaserScan, self.callback_scan)
         rospy.Subscriber("/clock", Clock, self.callback_time)
         self.__rate = rospy.Rate(self.__freq)
         # # Services
-        rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory)
-        rospy.Service(f"receive_mem_{self.__robot_number}", receive_memory, self.receive_memory)
+        rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory) #TODO: Crazyflie, multi PC?
+        rospy.Service(f"receive_mem_{self.__robot_number}", receive_memory, self.receive_memory) #TODO: Crazyflie, multi PC?
         # Pub blank data to start
         self.__start = False
-        self.pub_vel(0,0)
+        self.pub_vel(0,0,[0,0])
 
     def main_loop(self):
         self.__segregation.calculate_initial_conditions()
@@ -69,8 +68,8 @@ class ControlNode():
                 self.__segregation.check_arrival()
                 self.__rate.sleep()
 
-            [v,w] = self.__segregation.calculate_input_signals()
-            self.pub_vel(v,w) # Action
+            [[v,w],F] = self.__segregation.calculate_input_signals()
+            self.pub_vel(v,w,F) # Action  #TODO: Crazyflie: world vel
             self.__rate.sleep()
 
     def load_sim_param(self):
@@ -83,11 +82,12 @@ class ControlNode():
             "n_robots": int(rospy.get_param("/n_robots"))
         }
 
-    def pub_vel(self,v,w):
+    def pub_vel(self,v,w,F):
         vel = Twist()
-        vel.linear.x = v
+        vel.linear.x = v*F[0]
+        vel.linear.y = v*F[1]
         vel.angular.z = w
-        self.__publisher.publish(vel)
+        self.__publisher.publish(vel)  #TODO: Crazyflie: world vel
         self.__rate.sleep()
 
     def send_memory(self,req):
@@ -146,8 +146,9 @@ class ControlNode():
 
 if __name__ == "__main__":
     try:
-        time.sleep(5)
-        robot_number = int(sys.argv[1]); robot_group  = int(sys.argv[2]); x_initial = float(sys.argv[3]); y_initial = float(sys.argv[4])
+        robot_number = int(sys.argv[1])
+        robot_group  = int(sys.argv[2])
+
         control_node = ControlNode(robot_number, robot_group)
         control_node.main_loop()
     except rospy.ROSInterruptException:
