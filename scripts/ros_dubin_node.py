@@ -4,8 +4,7 @@ import sys
 import time
 
 import rospy
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Point
 from std_msgs.msg import Empty
 from rosgraph_msgs.msg import Clock
 # from sensor_msgs.msg import LaserScan
@@ -28,9 +27,8 @@ class ControlNode():
         # Init node
         rospy.init_node(f"controller_{self.__robot_number}")
         # Topics
-        self.__publisher = rospy.Publisher(f"/robot_{self.__robot_number}/cmd_vel", Twist, queue_size=10) #TODO: Crazyflie: world vel
-        rospy.Subscriber(f"/robot_{self.__robot_number}/base_pose_ground_truth", Odometry, self.callback_pose)
-        rospy.Subscriber("/clock", Clock, self.callback_time)
+        self.__publisher = rospy.Publisher(f"/robot_{self.__robot_number}/next_point", Point, queue_size=10) #TODO: Crazyflie: world vel
+        rospy.Subscriber(f"/robot_{self.__robot_number}/base_pose_ground_truth", Point, self.callback_pose)
         self.__rate = rospy.Rate(self.__freq)
         # # Services
         rospy.Service(f"send_mem_{self.__robot_number}", send_memory, self.send_memory) #TODO: Crazyflie, multi PC?
@@ -62,15 +60,17 @@ class ControlNode():
                 inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
                 if inward or outward:
                     self.__segregation.prevent_collision(inward,outward)
-                self.__rate.sleep()
+                # self.__rate.sleep()
             # A1: l25-l
             elif self.__segregation.get_state() == state["transition"]:
                 self.__segregation.check_arrival()
-                self.__rate.sleep()
+                # self.__rate.sleep()
 
             [[v,w],F] = self.__segregation.calculate_input_signals()
             self.pub_vel(v,w,F) # Action  #TODO: Crazyflie: world vel
-            self.__rate.sleep()
+            self.__segregation.set_time(self.__segregation.get_time()+1/self.__freq)
+
+            # self.__rate.sleep()
 
     def load_sim_param(self):
         # Load simulation parameters
@@ -83,11 +83,17 @@ class ControlNode():
         }
 
     def pub_vel(self,v,w,F):
-        vel = Twist()
-        vel.linear.x = v*F[0]
-        vel.linear.y = v*F[1]
-        vel.angular.z = w
-        self.__publisher.publish(vel)  #TODO: Crazyflie: world vel
+        p = Point()
+        [x,y,_] = self.__segregation.get_pose2D()
+        
+        [px,py] = self.__segregation.compute_next(x,y,self.__params["ref_vel"],1/self.__freq)
+        
+        p.x = px
+        p.y = py
+
+        # print(self.__segregation.get_time())
+        
+        self.__publisher.publish(p)  #TODO: Crazyflie: world vel
         self.__rate.sleep()
 
     def send_memory(self,req):
@@ -133,16 +139,9 @@ class ControlNode():
         return receive_memoryResponse(0,0)
 
     def callback_pose(self, data):
-        x = data.pose.pose.position.x
-        y = data.pose.pose.position.y
-        quat = data.pose.pose.orientation
-        eul = euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
-        theta = eul[2]
-        pose2D = [x,y,theta]
-        self.__segregation.set_pose2D(pose2D)
-
-    def callback_time(self, data):
-        self.__segregation.set_time(float(data.clock.secs) + float(data.clock.nsecs)/1e9)
+        x = data.x
+        y = data.y
+        self.__segregation.set_pose2D(x,y)
 
 if __name__ == "__main__":
     try:

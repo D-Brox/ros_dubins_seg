@@ -4,10 +4,12 @@ import sys
 import time
 from itertools import combinations
 import numpy as np
+import yaml
+import colorsys
+
 
 import rospy
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist,Point
 from tf.transformations import quaternion_from_euler
 
 from pycrazyswarm import Crazyswarm
@@ -15,13 +17,18 @@ from pycrazyswarm import Crazyswarm
 from dubins_seg.srv import *
 
 TAKEOFF_DURATION = 5.0
+ADJUST_DURATION = 5.0
 
 class CommNode():
 
-    def __init__(self, groups,n_robots, freq=60):
-        self.swarm = Crazyswarm(crazyflies_yaml="/crazyswarm/ros_ws/src/ros_dubins_seg/launch/dubins05.yaml",args="--sim --vis mpl")
+    def __init__(self,cf_yaml, groups,n_robots, freq=60):
+        self.swarm = Crazyswarm(crazyflies_yaml=cf_yaml)#,args="--sim --vis mpl")
+        # rospy.init_node("communication")
         self.timeHelper = self.swarm.timeHelper
         self.cfs = self.swarm.allcfs.crazyfliesById
+        with open(cf_yaml, 'r') as file:
+            self.__IDs = {k: v['id'] for (k,v) in enumerate(yaml.safe_load(file)["crazyflies"])}
+
         self.__n_robots = n_robots
         self.__freq = float(freq)
         self.__x = [0]*self.__n_robots
@@ -30,14 +37,19 @@ class CommNode():
         self.__memory = [None]*self.__n_robots
         self.__params = self.load_sim_param()
         self.__start = [False for _ in range(self.__n_robots)]
-        # Init node
-        rospy.init_node("communication")
+        self.__groups = groups
+        self.__group_list = list(set(groups))
+        self.__n_groups = len(self.__group_list)
+
+        hsv = [(x*1.0/self.__n_groups, 1, 1) for x in range(self.__n_groups)]
+        self.__colors = [colorsys.hsv_to_rgb(*x) for x in hsv]
+
         # Topics
-        self.__publisher = [None]*self.__n_robots
-        for robot_number in range(self.__n_robots):
-            self.cfs[robot_number+1].setLEDColor(*({0:[1,0,0],1:[0,1,0],2:[0,0,1]}[groups[robot_number]]))
-            self.__publisher[robot_number] = rospy.Publisher(f"robot_{robot_number}/base_pose_ground_truth", Odometry, queue_size=10)
-            rospy.Subscriber(f"/robot_{robot_number}/cmd_vel", Twist, self.callback_vel,(robot_number))
+        self.__pose_publisher = [None]*self.__n_robots
+        for i in range(self.__n_robots):
+            self.cfs[self.__IDs[i]].setLEDColor(*(self.__colors[groups[i]]))
+            self.__pose_publisher[i] = rospy.Publisher(f"robot_{i}/base_pose_ground_truth", Point, queue_size=10)
+            rospy.Subscriber(f"/robot_{i}/next_point", Point, self.callback_point,(i))
         rospy.Service("start",start,lambda _:all(self.__start) and all(self.__start))
 
         self.__send = [rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory,persistent=True) for i in range(self.__n_robots)]
@@ -45,27 +57,37 @@ class CommNode():
         rospy.Service("update_i",update_i,self.update_i)
 
         self.__rate = rospy.Rate(self.__freq)
+        rospy.on_shutdown(self.land)
 
     def main_loop(self):
         self.__params = self.load_sim_param()
 
         # Takeoff
-        self.swarm.allcfs.takeoff(targetHeight=1.0, duration=TAKEOFF_DURATION)
+        self.swarm.allcfs.takeoff(targetHeight=0.5, duration=TAKEOFF_DURATION)
+        print("takeoff")
         self.timeHelper.sleep(TAKEOFF_DURATION)
-
+        for i in range(self.__n_robots):
+            [x,y,_] = self.cfs[self.__IDs[i]].position()
+            d = self.__params["d"]
+            r = np.sqrt(x**2+y**2)
+            rh = round(r/d)*d
+            if not rh:
+                rh = d
+            self.cfs[self.__IDs[i]].goTo(goal = [x*rh/r,y*rh/r,0.5], yaw = 0, duration = ADJUST_DURATION)
+        print("adjust")
+        self.timeHelper.sleep(ADJUST_DURATION)
         while not rospy.is_shutdown():
-            for i,ID in enumerate(range(1,6)):
-                position = self.cfs[ID].position()
-                yaw = self.cfs[ID].yaw()
-                self.callback_pose((position,yaw),i)
+            for i in range(self.__n_robots):
+                position = self.cfs[self.__IDs[i]].position()
+                self.callback_pose(position,i)
             self.receive_all()
             self.swarm.timeHelper.sleep(1/self.__freq)
             self.__rate.sleep()
+            self.metric()
 
     def receive_all(self):
         for i in range(self.__n_robots):
             self.__memory[i] = self.__send[i](i,i)
-            # print(i,self.__memory[i].mov_will)
 
     def update_i(self,req):
         i = req.i
@@ -88,40 +110,57 @@ class CommNode():
         }
         return params
 
-    def callback_vel(self,twist,robot_number):
-        vel = [twist.linear.x,twist.linear.y,twist.linear.z]
-        yaw = twist.angular.z
-        self.cfs[robot_number+1].cmdVelocityWorld(vel, yaw*180/np.pi)
+    def callback_point(self,point,i):
+        p = [point.x,point.y,0.5]
+        self.cfs[self.__IDs[i]].cmdPosition(p, 0)
 
-    def callback_pose(self,pose,robot_number):
-        (position,yaw) = pose
-        self.__start[robot_number] = True
-        self.__x[robot_number] = position[0]
-        self.__y[robot_number] = position[1]
-        self.__theta[robot_number] = yaw
-        # if not robot_number:
-            # print(yaw)
+    def callback_pose(self,position,i):
+        self.__start[i] = True
+        self.__x[i] = position[0]
+        self.__y[i] = position[1]
 
-        odom = Odometry()
-        odom.pose.pose.position.x = self.__x[robot_number]
-        odom.pose.pose.position.y = self.__y[robot_number]
+        p = Point()
+        p.x = self.__x[i]
+        p.y = self.__y[i]
 
-        quaternion = quaternion_from_euler(0.0,0.0,self.__theta[robot_number])
-        odom.pose.pose.orientation.x = quaternion[0]
-        odom.pose.pose.orientation.y = quaternion[1]
-        odom.pose.pose.orientation.z = quaternion[2]
-        odom.pose.pose.orientation.w = quaternion[3]
+        self.__pose_publisher[i].publish(p)
 
-        self.__publisher[robot_number].publish(odom)
+    def land(self):
+        self.swarm.allcfs.land(targetHeight=0.0, duration=TAKEOFF_DURATION)
+        self.timeHelper.sleep(TAKEOFF_DURATION)
+        print("landed")
+    
+    def metric(self):
+        S = [0 for i in range(self.__n_robots)]
+        S_min = {g: np.inf for g in self.__group_list}
+        S_max = {g: 0 for g in self.__group_list}
+        for i in range(self.__n_robots):
+            g = self.__groups[i]
+            S[i] = round(np.sqrt(self.__x[i]**2 + self.__y[i]**2)/self.__params["d"])
+            if not S:
+                S = 1
+            S_min[g] = min(S_min[g],S[i])
+            S_max[g] = max(S_max[g],S[i])
+        
+        infringing = 0
+        for i in range(self.__n_robots):
+            for k in self.__group_list:
+                if self.__groups[i] != k and S_min[k]<=S[i]<=S_max[k]:
+                    infringing += 1
+        
+        segregation = 100*(1-infringing/(self.__n_robots*self.__n_groups))
+        print(f"Segregation: {segregation}%")
+
 
 if __name__ == "__main__":
     try:
-        n_robots = int(len(sys.argv)) - 3
+        cf_yaml = f"/crazyswarm/ros_ws/src/ros_dubins_seg/launch/{sys.argv[1]}"
+        n_robots = int(len(sys.argv)) - 4
         groups = []
-        for aux in range(1, n_robots+1):
+        for aux in range(2, n_robots+2):
             groups.append(int(sys.argv[aux]))
         M_groups = max(groups)+1
-        comm_node = CommNode(groups,n_robots)
+        comm_node = CommNode(cf_yaml,groups,n_robots)
         comm_node.main_loop()
     except rospy.ROSInterruptException:
         pass
