@@ -44,7 +44,8 @@ class ControlNode():
         self.__segregation.calculate_initial_conditions()
         self.__segregation.set_params(self.__params)
         self.__segregation.update_memory_about_itself()
-
+        
+        rospy.wait_for_service(f"/start")
         start_srv = rospy.ServiceProxy("/start",start,persistent=True)
         while not self.__start:
             try:
@@ -52,7 +53,8 @@ class ControlNode():
             except:
                 pass
             self.__rate.sleep()
-
+        
+        rospy.wait_for_service(f"/update_i")
         update = rospy.ServiceProxy("/update_i",update_i,persistent=True)
         while not rospy.is_shutdown():
             self.__segregation.update_memory_about_itself()
@@ -61,6 +63,7 @@ class ControlNode():
                 self.__segregation.set_neighbors(update(self.__robot_number).j_list)
                 self.__segregation.calculate_lap() # l7-l8
                 inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
+                #TODO: Subscriber /robot_{i}/will
                 if inward or outward:
                     self.__segregation.prevent_collision(inward,outward)
                 self.__rate.sleep()
@@ -146,7 +149,7 @@ class ControlNode():
 
 if __name__ == "__main__":
     try:
-        time.sleep(5)
+        # time.sleep(10)
         robot_number = int(sys.argv[1]); robot_group  = int(sys.argv[2]); x_initial = float(sys.argv[3]); y_initial = float(sys.argv[4])
         control_node = ControlNode(robot_number, robot_group)
         control_node.main_loop()
