@@ -2,6 +2,8 @@
 
 import sys
 import time
+
+from functools import lru_cache
 from collections import Counter
 import numpy as np
 
@@ -14,17 +16,36 @@ from pydubinsseg import movement_will
 
 from dubins_seg.srv import *
 
+def security_distance(dd,Rb,curve):
+    d = (curve-0.5)*dd
+    r1 = curve*dd -  Rb*2
+    r2 = dd/2
+    l = (r2**2 - r1**2 + d**2)/(2*d)
+    return (np.pi-np.arccos(l/r2))*r2
+
+def sup_count(d,Rb,curve):
+    r = curve*d
+    Sr = security_distance(d,Rb,curve)
+    C = 2*np.pi*r
+    return np.floor(C/(2*Sr))
+
+def has_space(d,Rb,curve, count):
+    return count < sup_count(d,Rb,curve)
+
+
 class CommNode():
 
-    def __init__(self, n_robots, freq=1000):
+    def __init__(self, n_robots, freq=120):
         self.__n_robots = n_robots
         self.__freq = float(freq)
         self.__x = [0]*self.__n_robots
         self.__y = [0]*self.__n_robots
         self.__theta = [0]*self.__n_robots
         self.__memory = [None]*self.__n_robots
+        self.__will = [movement_will["none"]]*self.__n_robots
         self.__groups = groups
         self.__group_list = list(set(groups))
+        self.__group_count = Counter(groups)
         self.__n_groups = len(self.__group_list)
         self.__segregated_groups = set()
 
@@ -41,11 +62,11 @@ class CommNode():
             rospy.wait_for_service(f"/robot_{i}/receive_mem_{i}")
             self.__send[i] = rospy.ServiceProxy(f"/robot_{i}/send_mem_{i}",send_memory,persistent=True)
             self.__receive[i] = rospy.ServiceProxy(f"/robot_{i}/receive_mem_{i}", receive_memory,persistent=True)
-            rospy.Subscriber(f"robot_{i}/base_pose_ground_truth", Odometry, self.callback_pose, (i))
-            self.__get_will[i] = rospy.Publisher(f"robot_{i}/will",Int64,queue_size=10)
+            rospy.Subscriber(f"/robot_{i}/base_pose_ground_truth", Odometry, self.callback_pose, (i))
 
-        rospy.Service("start",start,lambda _:all(self.__start) and all(self.__start))
+        rospy.Service("start",start,lambda _:all(self.__start))
         rospy.Service("update_i",update_i,self.update_i)
+        rospy.Service("will_i",will_i,self.will_i)
 
         self.__rate = rospy.Rate(self.__freq)
 
@@ -73,6 +94,10 @@ class CommNode():
                     memory_j = self.__memory[j]
                     self.__receive[i](memory_j.curve, memory_j.group, memory_j.time_curve, memory_j.time, memory_j.pose2D_x, memory_j.pose2D_y, memory_j.pose2D_theta, memory_j.mov_will, memory_j.number,memory_j.state)
         return update_iResponse(j_list)
+
+    def will_i(self,req):
+        i = req.i
+        return will_iResponse(self.__will[i])
 
     def load_sim_param(self):
         # Load simulation parameters
@@ -119,24 +144,34 @@ class CommNode():
                 S_prev_max = S_max[g]
             else:
                 g_next = g
+                S_next_max = S_prev_max+1
                 break
-        if g_next is None:
+        d = self.__params["d"]
+        Rb = self.__params["Rb"]
+        if g_next is not None:
+            count = self.__group_count[g_next]
             S_next_max = S_prev_max+1
-        else:                  
-            S_next_max = S_max[g_next]
+            while True:
+                count -= sup_count(d,Rb,S_next_max)
+                if count > 0:
+                    S_next_max+=1
+                else:
+                    break
+            S_next_max = (S_next_max + S_max[g_next])/2
+
         for i in range(self.__n_robots):
-            if self.__groups[i] in self.__segregated_groups:
-                continue
-            elif self.__groups[i] == g_next:
-                if S[i]>S_prev_max+1:
-                    will[i] = movement_will["inward"]
-            elif S[i] <= S_next_max:
-                will[i] = movement_will["outward"]
-            # TODO: Implement occupancy:
-            # elif not has_space(S[i],S_count[S[i]]):
-            #     will[i] = movement_will["outwards"]
-        for i in range(self.__n_robots):
-            self.__get_will[i].publish(will[i])
+            if not self.__groups[i] in self.__segregated_groups:
+                if self.__groups[i] == g_next:
+                    if S[i] > S_prev_max+1:
+                        will[i] = movement_will["inward"]
+                elif S[i] <= S_next_max:
+                    # print(f"next max {S_next_max} {i}")
+                    will[i] = movement_will["outward"]
+                if not has_space(d,Rb,S[i],S_count[S[i]]):
+                    # print(f"no space: curve {S[i]} count {S_count[S[i]]} max {sup_count(d,Rb,S_next_max)} {has_space(d,Rb,S[i],S_count[S[i]])}")
+                    will[i] = movement_will["outward"]
+
+        self.__will = will
 
     def S_min_max_mean(self):
         S = [0 for i in range(self.__n_robots)]
@@ -147,7 +182,7 @@ class CommNode():
         for i in range(self.__n_robots):
             g = self.__groups[i]
             n_k[g] += 1
-            S[i] = round(np.sqrt(self.__x[i]**2 + self.__y[i]**2)/self.__params["d"])
+            S[i] = int(round(np.sqrt(self.__x[i]**2 + self.__y[i]**2)/self.__params["d"]))
             if not S:
                 S = 1
             S_min[g] = min(S_min[g],S[i])
@@ -167,7 +202,7 @@ class CommNode():
                 if self.__groups[i] != k and S_min[k]<=S[i]<=S_max[k]:
                     infringing += 1
         
-        segregation = 100*(1-infringing/(self.__n_robots*self.__n_groups))
+        segregation = 100*(1-infringing/(self.__n_robots*(self.__n_groups-1)))
         print(f"Segregation: {segregation}%")
 
 if __name__ == "__main__":

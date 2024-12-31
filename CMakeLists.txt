@@ -63,6 +63,7 @@ add_service_files(
   receive_memory.srv
   start.srv
   update_i.srv
+  will_i.srv
 )
 
 ## Generate actions in the 'action' folder

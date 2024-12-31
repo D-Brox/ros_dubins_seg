@@ -6,23 +6,21 @@ import time
 import rospy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Empty
+from std_msgs.msg import Int64
 from rosgraph_msgs.msg import Clock
-# from sensor_msgs.msg import LaserScan
 from tf.transformations import euler_from_quaternion
-# from visualization_msgs.msg import Marker, MarkerArray
 
 from dubins_seg.srv import *
 from pydubinsseg.segregationcontrol import SegregationControl
-from pydubinsseg import state
-
+from pydubinsseg import movement_will,state
 
 class ControlNode():
 
-    def __init__(self, robot_number, robot_group, freq=10):
+    def __init__(self, robot_number, robot_group, freq=60):
         self.__robot_number = robot_number
         self.__robot_group = robot_group
         self.__freq = float(freq)
+        self.__will = movement_will["none"]
         self.load_sim_param()
         self.__segregation = SegregationControl(self.__robot_number, self.__robot_group, state["in circle"], self.__params)
         # Init node
@@ -30,7 +28,7 @@ class ControlNode():
         # Topics
         self.__publisher = rospy.Publisher(f"/robot_{self.__robot_number}/cmd_vel", Twist, queue_size=10)
         rospy.Subscriber(f"/robot_{self.__robot_number}/base_pose_ground_truth", Odometry, self.callback_pose)
-        # rospy.Subscriber(f"/robot_{self.__robot_number}/base_scan", LaserScan, self.callback_scan)
+        rospy.Subscriber(f"/will_{self.__robot_number}", Int64, self.callback_will)
         rospy.Subscriber("/clock", Clock, self.callback_time)
         self.__rate = rospy.Rate(self.__freq)
         # # Services
@@ -56,14 +54,21 @@ class ControlNode():
         
         rospy.wait_for_service(f"/update_i")
         update = rospy.ServiceProxy("/update_i",update_i,persistent=True)
+        rospy.wait_for_service(f"/will_i")
+        will = rospy.ServiceProxy("/will_i",will_i,persistent=True)
+        
         while not rospy.is_shutdown():
             self.__segregation.update_memory_about_itself()
             # A1: l6-l24
             if self.__segregation.get_state() == state["in circle"]:
                 self.__segregation.set_neighbors(update(self.__robot_number).j_list)
-                self.__segregation.calculate_lap() # l7-l8
-                inward,outward = self.__segregation.calculate_will() # l9-l22 and A2 at the end
-                #TODO: Subscriber /robot_{i}/will
+                
+                self.__will = will(self.__robot_number).will
+                inward = self.__will<=movement_will["inward"]
+                outward = self.__will==movement_will["outward"]
+                if self.__will == movement_will["compress"]:
+                    self.__segregation.set_segregated(True)
+
                 if inward or outward:
                     self.__segregation.prevent_collision(inward,outward)
                 self.__rate.sleep()
@@ -143,6 +148,9 @@ class ControlNode():
         theta = eul[2]
         pose2D = [x,y,theta]
         self.__segregation.set_pose2D(pose2D)
+
+    def callback_will(self,data):
+        self.__will = data.data
 
     def callback_time(self, data):
         self.__segregation.set_time(float(data.clock.secs) + float(data.clock.nsecs)/1e9)
