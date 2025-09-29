@@ -13,7 +13,7 @@ from dubins_seg.srv import *
 
 class CommNode():
 
-    def __init__(self, n_robots, freq=1000):
+    def __init__(self, n_robots, freq=100):
         self.__n_robots = n_robots
         self.__freq = float(freq)
         self.__x = [0]*self.__n_robots

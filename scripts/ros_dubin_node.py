@@ -68,6 +68,9 @@ class ControlNode():
             elif self.__segregation.get_state() == state["transition"]:
                 self.__segregation.check_arrival()
                 self.__rate.sleep()
+                self.__rate.sleep()
+                self.__rate.sleep()
+                self.__rate.sleep()
 
             [v,w] = self.__segregation.calculate_input_signals()
             self.pub_vel(v,w) # Action
